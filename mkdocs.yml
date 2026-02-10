@@ -1,0 +1,23 @@
+site_name: Fedot.HEP Documentation
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - sys.path.append(".")
+
+nav:
+  - Home: index.md
+  - Guide: guide.md
+  - API Reference:
+      - Core: api/core.md
+      - Evolution: api/evolution.md
+      - Visualization: api/visualization.md
