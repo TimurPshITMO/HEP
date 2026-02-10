@@ -1,9 +1,9 @@
 # Fedot.HEP: Hypergraph-Evolved Pipelines
 
-[![Framework: FEDOT](https://img.shields.io/badge/Framework-FEDOT-blue.svg)](https://github.com/itmo-nss-team/FEDOT)
+[![Framework: FEDOT](https://img.shields.io/badge/Framework-FEDOT-blue.svg)](https://github.com/aimclub/FEDOT)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
 
-**Fedot.HEP (Hypergraph-Evolved Pipelines)** is an extension for the [FEDOT](https://github.com/itmo-nss-team/FEDOT) AutoML framework that allows for the evolution of not only the overall ML pipeline structure but also the **interaction topology of input features** based on hypergraph theory.
+**Fedot.HEP (Hypergraph-Evolved Pipelines)** is an extension for the [FEDOT](https://github.com/aimclub/FEDOT) AutoML framework that allows for the evolution of not only the overall ML pipeline structure but also the **interaction topology of input features** based on hypergraph theory.
 
 ## 🚀 Key Features
 
