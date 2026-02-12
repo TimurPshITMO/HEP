@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Logs and transient benchmarking data
+*.log
+benchmark_results/
+notebooks/history/
+
+# IDEs
+.vscode/
+.idea/
+
+# Instructions
+standalone_hep_roadmap.md
+hep_scientific_thesis.md
