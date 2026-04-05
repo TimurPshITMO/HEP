@@ -17,6 +17,8 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+
 from hep_engine import FitnessEvaluator, EvolutionaryOptimizer
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,8 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
         timeout: float = 300.0,
         n_jobs: Optional[int] = -1,
         complexity_penalty: float = 0.0,
+        available_functions: Optional[List[str]] = None,
+        inner_model=None,
         random_state: Optional[int] = 42,
         history_dir: Optional[str] = None,
     ):
@@ -81,10 +85,38 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
         self.timeout = timeout
         self.n_jobs = n_jobs
         self.complexity_penalty = complexity_penalty
+        self.available_functions = available_functions
+        self.inner_model = inner_model
         self.random_state = random_state
         self.history_dir = history_dir
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> 'HEPTransformer':
+        import random
+
+        # Apply random_state to global PRNG for reproducible evolution.
+        # isinstance(int) guard: random.seed() cannot accept np.random.RandomState
+        # objects and would raise TypeError (sklearn allows all three types).
+        # Technical Debt: global seed is an sklearn anti-pattern (global state
+        # poisoning). Correct fix: local RNG instance inside GeneticOperators.
+        if isinstance(self.random_state, int):
+            np.random.seed(self.random_state)
+            random.seed(self.random_state)
+
+        # Build default inner model with same random_state for reproducible CV scores.
+        # Use local variable — modifying self.inner_model in fit() would violate
+        # sklearn's requirement that __init__ params are not mutated in fit().
+        inner = self.inner_model
+        if inner is None:
+            if self.problem_type == 'regression':
+                inner = RandomForestRegressor(
+                    n_estimators=50, max_depth=5,
+                    n_jobs=self.n_jobs, random_state=self.random_state,
+                )
+            else:
+                inner = RandomForestClassifier(
+                    n_estimators=50, max_depth=5,
+                    n_jobs=self.n_jobs, random_state=self.random_state,
+                )
 
         evaluator = FitnessEvaluator(
             X, y,
@@ -92,6 +124,7 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
             cv=self.cv,
             complexity_penalty=self.complexity_penalty,
             n_jobs=self.n_jobs,
+            model=inner,
         )
 
         optimizer = EvolutionaryOptimizer(
@@ -99,6 +132,7 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
             mut_rate=self.mut_rate,
             cross_rate=self.cross_rate,
             elitism_count=self.elitism_count,
+            available_functions=self.available_functions,
         )
 
         # Each fit() gets a unique tracker directory to avoid collisions when
