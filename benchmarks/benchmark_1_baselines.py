@@ -80,9 +80,15 @@ def run_one_trial(
         dataset.X, dataset.y, test_size=test_size, random_state=seed
     )
 
+    from sklearn.model_selection import KFold, StratifiedKFold
+    if dataset.problem_type == 'classification':
+        splitter = StratifiedKFold(n_splits=cv, shuffle=True, random_state=seed)
+    else:
+        splitter = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
     # ---- WITHOUT HEP ----
     pipe_raw = Pipeline([('scaler', StandardScaler()), ('model', clone(model_template))])
-    cv_raw = cross_val_score(pipe_raw, X_tr, y_tr, cv=cv, scoring=scoring)
+    cv_raw = cross_val_score(pipe_raw, X_tr, y_tr, cv=splitter, scoring=scoring)
     pipe_raw.fit(X_tr, y_tr)
     test_raw = _test_score(pipe_raw, X_te, y_te, dataset.problem_type)
 
@@ -94,7 +100,7 @@ def run_one_trial(
     )
     # 1. Сначала честная кросс-валидация внутри Pipeline (исключает Target Leakage)
     pipe_hep_cv = Pipeline([('hep', hep), ('scaler', StandardScaler()), ('model', clone(model_template))])
-    cv_hep = cross_val_score(pipe_hep_cv, X_tr, y_tr, cv=cv, scoring=scoring)
+    cv_hep = cross_val_score(pipe_hep_cv, X_tr, y_tr, cv=splitter, scoring=scoring)
 
     # 2. Обучение на всём train для holdout-теста и замеров времени
     pipe_hep_test = Pipeline([('hep', hep), ('scaler', StandardScaler()), ('model', clone(model_template))])

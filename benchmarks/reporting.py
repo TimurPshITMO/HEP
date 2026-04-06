@@ -69,17 +69,24 @@ def print_summary_table(df: pd.DataFrame, score_col: str = 'test_score') -> None
     # --- Friedman test ---
     try:
         from scipy.stats import friedmanchisquare
-        method_scores = [
-            agg[agg['method'] == m][score_col].values for m in methods
-        ]
-        # Friedman requires equal-length groups; skip if unequal
-        if len({len(s) for s in method_scores}) == 1 and len(method_scores) >= 3:
-            stat, p_value = friedmanchisquare(*method_scores)
+        ok_df = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+        pivot = ok_df.pivot_table(index=['dataset', 'seed'], columns='method', values=score_col)
+        # Drop rows where not all methods have a score
+        pivot = pivot.dropna()
+        
+        if pivot.shape[0] >= 3 and pivot.shape[1] >= 3:
+            stat, p_value = friedmanchisquare(*[pivot[m].values for m in pivot.columns])
             friedman_str = f"Friedman χ²={stat:.3f}, p={p_value:.4f}"
+            
+            # Kendall's W (effect size)
+            n_blocks, n_methods = pivot.shape
+            w = stat / (n_blocks * (n_methods - 1))
+            friedman_str += f", Kendall's W={w:.3f}"
+            
             if p_value < 0.05:
                 friedman_str += "  *** statistically significant"
         else:
-            friedman_str = "Friedman test skipped (unequal group sizes or <3 methods)"
+            friedman_str = "Friedman test skipped (fewer than 3 valid blocks/methods)"
     except ImportError:
         friedman_str = "scipy not available — Friedman test skipped"
 
@@ -105,14 +112,21 @@ def print_summary_table(df: pd.DataFrame, score_col: str = 'test_score') -> None
 
 def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
     """Grouped bar chart: Raw vs HEP test score, one subplot per dataset."""
+    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
+    denom = np.sqrt(n_seeds)
+
     # Aggregate across seeds
-    agg = df.groupby(['dataset', 'model']).agg(
+    agg = df_ok.groupby(['dataset', 'model']).agg(
         test_score_raw=('test_score_raw', 'mean'),
         test_score_hep=('test_score_hep', 'mean'),
         std_raw=('test_score_raw', 'std'),
         std_hep=('test_score_hep', 'std'),
         delta=('delta_test_score', 'mean'),
     ).reset_index()
+
+    agg['sem_raw'] = agg['std_raw'] / denom
+    agg['sem_hep'] = agg['std_hep'] / denom
 
     datasets = agg['dataset'].unique()
     n = len(datasets)
@@ -125,10 +139,10 @@ def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
         w = 0.35
 
         ax.bar(x - w / 2, sub['test_score_raw'], w,
-               yerr=sub['std_raw'].fillna(0), capsize=4,
+               yerr=sub['sem_raw'].fillna(0), capsize=4,
                label='Raw', color='steelblue', alpha=0.85)
         bars_hep = ax.bar(x + w / 2, sub['test_score_hep'], w,
-                          yerr=sub['std_hep'].fillna(0), capsize=4,
+                          yerr=sub['sem_hep'].fillna(0), capsize=4,
                           label='HEP', color='darkorange', alpha=0.85)
 
         # Annotate delta above HEP bars
@@ -138,7 +152,7 @@ def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
             color = 'darkgreen' if delta >= 0 else 'crimson'
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + max(row['std_hep'] if not np.isnan(row['std_hep']) else 0, 0.005) + 0.005,
+                bar.get_height() + max(row['sem_hep'] if not np.isnan(row['sem_hep']) else 0, 0.005) + 0.005,
                 f'{sign}{delta:.3f}',
                 ha='center', va='bottom', fontsize=7, color=color, fontweight='bold',
             )
@@ -146,7 +160,7 @@ def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
         ax.set_title(ds, fontsize=11, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(models, rotation=25, ha='right', fontsize=9)
-        ax.set_ylabel('Test Score (mean ± std)')
+        ax.set_ylabel('Test Score (mean ± SEM)')
         ax.axhline(0, color='black', linewidth=0.5, linestyle='--')
         ax.legend(fontsize=8)
 
@@ -165,10 +179,15 @@ def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
 
 def plot_benchmark_2(df: pd.DataFrame, output_path: str) -> None:
     """Grouped bar chart: FE methods per dataset, HEP highlighted."""
-    agg = df[df['status'] == 'ok'].groupby(['dataset', 'method']).agg(
+    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
+    denom = np.sqrt(n_seeds)
+
+    agg = df_ok.groupby(['dataset', 'method']).agg(
         mean_score=('test_score', 'mean'),
         std_score=('test_score', 'std'),
     ).reset_index()
+    agg['sem_score'] = agg['std_score'] / denom
 
     datasets = agg['dataset'].unique()
     methods = agg['method'].unique()
@@ -184,12 +203,12 @@ def plot_benchmark_2(df: pd.DataFrame, output_path: str) -> None:
         x = np.arange(len(sub))
         colors = [method_colors.get(m, 'gray') for m in sub['method']]
         ax.bar(x, sub['mean_score'],
-               yerr=sub['std_score'].fillna(0), capsize=4,
+               yerr=sub['sem_score'].fillna(0), capsize=4,
                color=colors, alpha=0.85)
         ax.set_title(ds, fontsize=11, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(sub['method'], rotation=30, ha='right', fontsize=8)
-        ax.set_ylabel('Test Score (mean ± std)')
+        ax.set_ylabel('Test Score (mean ± SEM)')
         ax.axhline(0, color='black', linewidth=0.5, linestyle='--')
 
     fig.suptitle('Benchmark 2: Feature Engineering Methods Comparison',
@@ -334,22 +353,31 @@ def plot_convergence_curve(history_paths: List[str], output_path: str,
 
 def plot_ablation(df: pd.DataFrame, output_path: str) -> None:
     """Line chart per hyperparameter showing mean best_fitness vs param value."""
-    params = df['param_name'].unique()
+    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
+    denom = np.sqrt(n_seeds)
+
+    params = df_ok['param_name'].unique()
     n = len(params)
     fig, axes = plt.subplots(1, n, figsize=(5 * n, 4), squeeze=False)
 
     for ax, param in zip(axes[0], params):
-        sub = df[df['param_name'] == param].copy()
-        # param_value may be a list serialised as string — keep as label
-        sub['label'] = sub['param_value'].astype(str)
+        sub = df_ok[df_ok['param_name'] == param].copy()
+        
+        # Preserve chronological ordering representing integer grid spacing 
+        unique_labels = sub['param_value'].unique()
+        sub['label'] = pd.Categorical(sub['param_value'], categories=unique_labels, ordered=True)
+        
         grp = sub.groupby('label')['best_fitness'].agg(['mean', 'std']).reset_index()
+        grp['sem'] = grp['std'] / denom
+        
         x = np.arange(len(grp))
-        ax.errorbar(x, grp['mean'], yerr=grp['std'].fillna(0),
+        ax.errorbar(x, grp['mean'], yerr=grp['sem'].fillna(0),
                     fmt='-o', color='steelblue', capsize=4, linewidth=2)
         ax.set_title(param, fontsize=10, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(grp['label'], rotation=25, ha='right', fontsize=8)
-        ax.set_ylabel('Best Fitness (mean ± std)')
+        ax.set_ylabel('Best Fitness (mean ± SEM)')
 
     fig.suptitle('Benchmark 3: HEP Hyperparameter Sensitivity (OFAT)',
                  fontsize=13, fontweight='bold')

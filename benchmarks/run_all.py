@@ -161,13 +161,10 @@ def main():
         logger.info("BENCHMARK 3: HEP Hyperparameter Sensitivity (OFAT)")
         logger.info("=" * 60)
 
-        # B3 always runs on the synthetic dataset regardless of --datasets
-        synth = next((d for d in datasets if d.name == 'synthetic_regression'), None)
-        if synth is None:
-            from benchmarks.datasets import get_dataset as _gd
-            synth = _gd('synthetic_regression')
+        # B3 always runs on the first provided dataset
+        b3_dataset = datasets[0] if datasets else None
 
-        df3 = run_benchmark_3(synth, seeds, base_params=hep_params)
+        df3 = run_benchmark_3(b3_dataset, seeds, base_params=hep_params)
         save_results_csv(df3, os.path.join(args.output_dir, 'benchmark_3_ablation.csv'))
         print_results_table(df3, "Benchmark 3 Ablation Results")
         plot_ablation(df3, os.path.join(args.output_dir, 'benchmark_3_ablation.png'))
