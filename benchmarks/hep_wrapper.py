@@ -134,6 +134,10 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
             elitism_count=self.elitism_count,
             available_functions=self.available_functions,
         )
+        # NOTE: EvolutionaryOptimizer.__init__ creates EvolutionTracker(output_dir='history'),
+        # which immediately calls os.makedirs('history') in CWD. This is a side effect of
+        # hep_engine internals and cannot be avoided without modifying hep_engine.
+        # Data is correctly routed to run_dir below via output_dir override.
 
         # Each fit() gets a unique tracker directory to avoid collisions when
         # running multiple seeds in the same process.

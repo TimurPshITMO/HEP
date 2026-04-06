@@ -76,8 +76,7 @@ def build_method_registry(dataset: DatasetInfo, hep_params: dict, seed: int) -> 
         hep = HEPTransformer(
             problem_type=problem_type,
             random_state=seed,
-            **{k: v for k, v in hep_params.items() if k != 'cv'},
-            cv=hep_params.get('cv', 3),
+            **hep_params,
         )
         hep.fit(X_tr, y_tr)
         Xtr_t = hep.transform(X_tr)

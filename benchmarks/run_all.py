@@ -49,10 +49,13 @@ def _parse_args():
                    help='Subset of dataset names (default: all)')
     p.add_argument('--seeds', nargs='+', type=int, default=None,
                    help='Random seeds (default: config.SEEDS)')
-    p.add_argument('--hep-generations',       type=int,   default=DEFAULT_HEP_PARAMS['n_generations'])
-    p.add_argument('--hep-pop-size',          type=int,   default=DEFAULT_HEP_PARAMS['pop_size'])
-    p.add_argument('--hep-timeout',           type=float, default=DEFAULT_HEP_PARAMS['timeout'])
+    p.add_argument('--hep-generations',        type=int,   default=DEFAULT_HEP_PARAMS['n_generations'])
+    p.add_argument('--hep-pop-size',           type=int,   default=DEFAULT_HEP_PARAMS['pop_size'])
+    p.add_argument('--hep-timeout',            type=float, default=DEFAULT_HEP_PARAMS['timeout'])
     p.add_argument('--hep-complexity-penalty', type=float, default=DEFAULT_HEP_PARAMS.get('complexity_penalty', 0.0))
+    p.add_argument('--hep-mut-rate',           type=float, default=DEFAULT_HEP_PARAMS['mut_rate'])
+    p.add_argument('--hep-cross-rate',         type=float, default=DEFAULT_HEP_PARAMS['cross_rate'])
+    p.add_argument('--hep-elitism-count',      type=int,   default=DEFAULT_HEP_PARAMS['elitism_count'])
     p.add_argument('--max-samples',     type=int, default=5000,
                    help='Subsample datasets larger than this (default: 5000)')
     p.add_argument('--output-dir',      default='benchmarks/results')
@@ -98,6 +101,9 @@ def main():
     hep_params['pop_size']         = args.hep_pop_size
     hep_params['timeout']          = args.hep_timeout
     hep_params['complexity_penalty'] = args.hep_complexity_penalty
+    hep_params['mut_rate']           = args.hep_mut_rate
+    hep_params['cross_rate']         = args.hep_cross_rate
+    hep_params['elitism_count']      = args.hep_elitism_count
 
     seeds = args.seeds or SEEDS
 

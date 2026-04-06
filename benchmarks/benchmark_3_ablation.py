@@ -53,8 +53,7 @@ def run_one_ablation_trial(
     hep = HEPTransformer(
         problem_type=dataset.problem_type,
         random_state=seed,
-        **{k: v for k, v in base_params.items() if k != 'cv'},
-        cv=base_params.get('cv', 3),
+        **base_params,
     )
 
     with ResourceProfiler() as prof:

@@ -26,14 +26,16 @@ class DatasetInfo:
 
 def load_synthetic_regression() -> DatasetInfo:
     """1000 samples, 12 features, nonlinear target — exact formula from run_benchmark.py."""
-    np.random.seed(42)
-    X = np.random.uniform(-3, 3, (1000, 12))
+    # Use local RandomState instead of np.random.seed() to avoid poisoning the
+    # global numpy RNG for the rest of the benchmark process.
+    rng = np.random.RandomState(42)
+    X = rng.uniform(-3, 3, (1000, 12))
     y = (
         X[:, 0] * X[:, 1]
         + X[:, 2] ** 2
         + X[:, 3] * X[:, 4] * X[:, 5]
         + np.sin(X[:, 6]) * X[:, 7]
-        + np.random.normal(0, 0.2, 1000)
+        + rng.normal(0, 0.2, 1000)
     )
     feature_names = [f"f{i}" for i in range(12)]
     return DatasetInfo(

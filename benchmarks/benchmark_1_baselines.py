@@ -90,8 +90,7 @@ def run_one_trial(
     hep = HEPTransformer(
         problem_type=dataset.problem_type,
         random_state=seed,
-        **{k: v for k, v in hep_params.items() if k != 'cv'},
-        cv=hep_params.get('cv', 3),
+        **hep_params,
     )
     # 1. Сначала честная кросс-валидация внутри Pipeline (исключает Target Leakage)
     pipe_hep_cv = Pipeline([('hep', hep), ('scaler', StandardScaler()), ('model', clone(model_template))])

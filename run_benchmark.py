@@ -12,18 +12,19 @@ from hep_engine.visualizer import HEPVisualizer
 
 import sys
 
-def generate_complex_data(n_samples=1000, n_features=12):
+def generate_complex_data(n_samples=1000, n_features=12, seed=42):
     """
     Генерирует данные с явными сложными взаимодействиями.
     f0 * f1, f2^2, f3 * f4 * f5, sin(f6)*f7
     """
-    X = np.random.uniform(-3, 3, (n_samples, n_features))
-    y = (X[:, 0] * X[:, 1] + 
-         X[:, 2]**2 + 
-         X[:, 3] * X[:, 4] * X[:, 5] + 
+    rng = np.random.RandomState(seed)
+    X = rng.uniform(-3, 3, (n_samples, n_features))
+    y = (X[:, 0] * X[:, 1] +
+         X[:, 2]**2 +
+         X[:, 3] * X[:, 4] * X[:, 5] +
          np.sin(X[:, 6]) * X[:, 7] +
-         np.random.normal(0, 0.2, n_samples))
-    
+         rng.normal(0, 0.2, n_samples))
+
     feature_names = [f"feat_{i}" for i in range(n_features)]
     return X, y, feature_names
 
@@ -41,7 +42,7 @@ def main():
     print(f"Baseline RF (Raw) R2 CV: {np.mean(baseline_cv):.4f}")
     
     # 3. Эволюция HEP
-    evaluator = FitnessEvaluator(X_train, y_train, cv=3)
+    evaluator = FitnessEvaluator(X_train, y_train, cv=3, complexity_penalty=0.005)
     optimizer = EvolutionaryOptimizer(pop_size=40, mut_rate=0.4, cross_rate=0.5, elitism_count=3)
     
     print("\nStarting HEP Evolution (50 generations)...")
