@@ -20,3 +20,11 @@ DATASET_NAMES = [
     'breast_cancer',
     'wine',
 ]
+
+# Optional real-world datasets (require: poetry install -E real-datasets)
+OPTIONAL_DATASET_NAMES = [
+    'superconductivity',
+    'appliances_energy',
+    'qsar_biodegradation',
+    'gas_sensor_array',
+]

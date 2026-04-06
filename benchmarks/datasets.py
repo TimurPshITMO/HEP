@@ -1,9 +1,19 @@
-"""Dataset registry for HEP benchmarks. All datasets are returned raw (unscaled)."""
+"""Dataset registry for HEP benchmarks. All datasets are returned raw (unscaled).
+
+Mandatory datasets (always available, sklearn-based):
+    synthetic_regression, california_housing, diabetes, breast_cancer, wine
+
+Optional real-world datasets (require: poetry install -E real-datasets):
+    superconductivity, appliances_energy, qsar_biodegradation, gas_sensor_array
+"""
 
 from __future__ import annotations
+import logging
 from dataclasses import dataclass, field
 from typing import List
 import numpy as np
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -104,11 +114,113 @@ _REGISTRY = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Optional real-world datasets
+# Install: poetry install -E real-datasets  OR  pip install ucimlrepo openml
+# ---------------------------------------------------------------------------
+
+def load_superconductivity() -> DatasetInfo:
+    """Superconductivity Tc regression, 21 263 × 81, OpenML 44964."""
+    try:
+        import openml
+    except ImportError:
+        raise ImportError("pip install ucimlrepo openml  OR  poetry install -E real-datasets")
+    ds = openml.datasets.get_dataset(44964)
+    X_df, y_s, _, _ = ds.get_data(target=ds.default_target_attribute)
+    return DatasetInfo(
+        name='superconductivity',
+        X=X_df.to_numpy(dtype=np.float64),
+        y=np.array(y_s, dtype=np.float64).ravel(),
+        problem_type='regression',
+        description='Superconductivity critical temperature Tc (21 263 × 81, OpenML 44964)',
+        feature_names=list(X_df.columns),
+    )
+
+
+def load_appliances_energy() -> DatasetInfo:
+    """Appliances energy prediction, 19 735 × 28, UCI."""
+    try:
+        from ucimlrepo import fetch_ucirepo
+    except ImportError:
+        raise ImportError("pip install ucimlrepo openml  OR  poetry install -E real-datasets")
+    ds = fetch_ucirepo(name="Appliances energy prediction")
+    X = ds.data.features.select_dtypes(include=[np.number])  # drop datetime 'date' column
+    y = ds.data.targets.iloc[:, 0]                           # 'Appliances' energy in Wh
+    return DatasetInfo(
+        name='appliances_energy',
+        X=X.to_numpy(dtype=np.float64),
+        y=np.array(y, dtype=np.float64).ravel(),
+        problem_type='regression',
+        description='Appliances energy prediction (19 735 × 28, UCI)',
+        feature_names=list(X.columns),
+    )
+
+
+def load_qsar_biodegradation() -> DatasetInfo:
+    """QSAR biodegradation binary classification, 1 055 × 41, UCI."""
+    try:
+        from ucimlrepo import fetch_ucirepo
+    except ImportError:
+        raise ImportError("pip install ucimlrepo openml  OR  poetry install -E real-datasets")
+    from sklearn.preprocessing import LabelEncoder
+    ds = fetch_ucirepo(name="QSAR biodegradation")
+    X = ds.data.features.to_numpy(dtype=np.float64)
+    # Labels may be strings ('RB'/'NRB') or integers (1/2) — LabelEncoder handles both
+    y = LabelEncoder().fit_transform(ds.data.targets.iloc[:, 0].astype(str))
+    return DatasetInfo(
+        name='qsar_biodegradation',
+        X=X,
+        y=y,
+        problem_type='classification',
+        description='QSAR Biodegradation binary classification (1 055 × 41, UCI)',
+        feature_names=list(ds.data.features.columns),
+    )
+
+
+def load_gas_sensor_array() -> DatasetInfo:
+    """Gas sensor array drift, 13 910 × 128, 10-class, UCI."""
+    try:
+        from ucimlrepo import fetch_ucirepo
+    except ImportError:
+        raise ImportError("pip install ucimlrepo openml  OR  poetry install -E real-datasets")
+    from sklearn.preprocessing import LabelEncoder
+    ds = fetch_ucirepo(name="Gas Sensor Array Drift Dataset")
+    X = ds.data.features.select_dtypes(include=[np.number]).to_numpy(dtype=np.float64)
+    y = LabelEncoder().fit_transform(ds.data.targets.iloc[:, 0].astype(str))
+    return DatasetInfo(
+        name='gas_sensor_array',
+        X=X,
+        y=y,
+        problem_type='classification',
+        description='Gas Sensor Array Drift 10-class (13 910 × 128, UCI)',
+        feature_names=[f"sensor_{i}" for i in range(X.shape[1])],
+    )
+
+
+_OPTIONAL_REGISTRY: dict = {
+    'superconductivity':   load_superconductivity,
+    'appliances_energy':   load_appliances_energy,
+    'qsar_biodegradation': load_qsar_biodegradation,
+    'gas_sensor_array':    load_gas_sensor_array,
+}
+
+
 def get_dataset(name: str) -> DatasetInfo:
-    if name not in _REGISTRY:
-        raise KeyError(f"Unknown dataset '{name}'. Available: {list(_REGISTRY)}")
-    return _REGISTRY[name]()
+    if name in _REGISTRY:
+        return _REGISTRY[name]()
+    if name in _OPTIONAL_REGISTRY:
+        return _OPTIONAL_REGISTRY[name]()  # raises ImportError with helpful message if missing
+    raise KeyError(
+        f"Unknown dataset '{name}'. "
+        f"Available: {list(_REGISTRY) + list(_OPTIONAL_REGISTRY)}"
+    )
 
 
 def get_all_datasets() -> List[DatasetInfo]:
-    return [_REGISTRY[name]() for name in _REGISTRY]
+    datasets = [_REGISTRY[name]() for name in _REGISTRY]
+    for name, loader in _OPTIONAL_REGISTRY.items():
+        try:
+            datasets.append(loader())
+        except Exception as exc:  # ImportError, network errors, API changes
+            _logger.warning(f"Skipping optional dataset '{name}': {exc}")
+    return datasets
