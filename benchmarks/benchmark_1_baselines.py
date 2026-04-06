@@ -93,9 +93,13 @@ def run_one_trial(
     test_raw = _test_score(pipe_raw, X_te, y_te, dataset.problem_type)
 
     # ---- WITH HEP ----
+    # inner_model=clone(model_template): HEP evolves features specifically for the
+    # downstream model being benchmarked. Ridge/LogReg proxy is near-free; GBM proxy
+    # is bounded by the timeout parameter (returns best genome found within budget).
     hep = HEPTransformer(
         problem_type=dataset.problem_type,
         random_state=seed,
+        inner_model=clone(model_template),
         **hep_params,
     )
     # 1. Сначала честная кросс-валидация внутри Pipeline (исключает Target Leakage)

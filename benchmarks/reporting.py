@@ -69,7 +69,11 @@ def print_summary_table(df: pd.DataFrame, score_col: str = 'test_score') -> None
     # --- Friedman test ---
     try:
         from scipy.stats import friedmanchisquare
-        ok_df = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+        if 'status' in df.columns:
+            ok_df = df[~df['status'].fillna('').str.startswith('error')].copy()
+        else:
+            ok_df = df.copy()
+            
         pivot = ok_df.pivot_table(index=['dataset', 'seed'], columns='method', values=score_col)
         # Drop rows where not all methods have a score
         pivot = pivot.dropna()
@@ -112,7 +116,11 @@ def print_summary_table(df: pd.DataFrame, score_col: str = 'test_score') -> None
 
 def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
     """Grouped bar chart: Raw vs HEP test score, one subplot per dataset."""
-    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    if 'status' in df.columns:
+        df_ok = df[~df['status'].fillna('').str.startswith('error')].copy()
+    else:
+        df_ok = df.copy()
+        
     n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
     denom = np.sqrt(n_seeds)
 
@@ -179,7 +187,11 @@ def plot_benchmark_1(df: pd.DataFrame, output_path: str) -> None:
 
 def plot_benchmark_2(df: pd.DataFrame, output_path: str) -> None:
     """Grouped bar chart: FE methods per dataset, HEP highlighted."""
-    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    if 'status' in df.columns:
+        df_ok = df[~df['status'].fillna('').str.startswith('error')].copy()
+    else:
+        df_ok = df.copy()
+        
     n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
     denom = np.sqrt(n_seeds)
 
@@ -353,7 +365,11 @@ def plot_convergence_curve(history_paths: List[str], output_path: str,
 
 def plot_ablation(df: pd.DataFrame, output_path: str) -> None:
     """Line chart per hyperparameter showing mean best_fitness vs param value."""
-    df_ok = df[df.get('status', pd.Series(['ok'] * len(df))) != 'error'].copy()
+    if 'status' in df.columns:
+        df_ok = df[~df['status'].fillna('').str.startswith('error')].copy()
+    else:
+        df_ok = df.copy()
+        
     n_seeds = df_ok['seed'].nunique() if 'seed' in df_ok.columns else 5
     denom = np.sqrt(n_seeds)
 

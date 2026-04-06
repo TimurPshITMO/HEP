@@ -76,6 +76,7 @@ def build_method_registry(dataset: DatasetInfo, hep_params: dict, seed: int) -> 
         hep = HEPTransformer(
             problem_type=problem_type,
             random_state=seed,
+            inner_model=_get_rf(problem_type),  # match downstream RF(100)
             **hep_params,
         )
         hep.fit(X_tr, y_tr)

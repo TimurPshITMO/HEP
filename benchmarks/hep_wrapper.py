@@ -50,6 +50,22 @@ class HEPTransformer(BaseEstimator, TransformerMixin):
     complexity_penalty : float
         L0 regularization coefficient λ: fitness = CV_score − λ·|E|.
         0.0 disables regularization. Typical range: 0.001–0.01.
+    inner_model : sklearn estimator or None
+        Proxy model used by FitnessEvaluator to score candidate hypergraphs
+        during evolution via cross-validation. If None, defaults to a
+        lightweight RandomForest(n_estimators=50, max_depth=5) for speed.
+
+        For scientifically clean benchmarks, pass the same model used
+        downstream: ``inner_model=clone(model_template)``. This ensures HEP
+        evolves features optimised for the actual evaluation architecture:
+
+        - Ridge/LogReg: near-zero cost (linear fits take milliseconds)
+        - RandomForest(100): ~2× vs default proxy, within timeout budget
+        - GradientBoosting(100): ~10× slower; timeout caps the run and
+          returns the best genome found so far
+
+        The default RF(50, depth=5) proxy is kept for exploratory use where
+        cross-architecture generalisability is the experimental goal.
     random_state : int or None
         Seeds both numpy and Python random for reproducibility.
     history_dir : str or None

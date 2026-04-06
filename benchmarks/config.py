@@ -11,6 +11,7 @@ DEFAULT_HEP_PARAMS = dict(
     cv=3,
     timeout=300,
     complexity_penalty=0.0,
+    n_jobs=-1,
 )
 
 DATASET_NAMES = [
