@@ -11,8 +11,8 @@ graph TD
     A[Начало: Случайная популяция] --> B[Оценка Fitness];
     B --> C{Критерий остановки?};
     C -- Нет --> D[Отбор лучших: Tournament Selection];
-    D --> E[Применение Мутации];
-    E --> F[Применение Кроссовера];
+    D --> E[Применение Кроссовера];
+    E --> F[Применение Мутации];
     F --> G[Элитизм: замена худших лучшими родителями];
     G --> B;
     C -- Да --> H[Конец: Возврат лучшей особи];
@@ -25,13 +25,13 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant User as Скрипт Пользователя
-    participant Opt as Optimizer
+    participant Optimizer as Optimizer
     participant Eval as FitnessEvaluator
     participant HG as Hypergraph (Genome)
     
-    User->>Opt: run(evaluator, generations)
+    User->>Optimizer: run(evaluator, generations)
     loop Каждое поколение
-        Opt->>Eval: evaluate(individual)
+        Optimizer->>Eval: evaluate(individual)
         Eval->>HG: transform(X, cache)
         loop Каждое гиперребро (sig, edge)
             HG->>HG: Проверка кэша по sig
@@ -40,9 +40,9 @@ sequenceDiagram
         HG-->>Eval: X_hep (новые признаки)
         Eval->>Eval: np.hstack([X, X_hep])
         Eval->>Eval: Cross-Validation (Random Forest)
-        Eval-->>Opt: Fitness = Score - Penalty
+        Eval-->>Optimizer: Fitness = Score - Penalty
     end
-    Opt-->>User: Лучшая модель и история
+    Optimizer-->>User: Лучшая модель и история
 ```
 
 ## 3. Взаимодействие классов
