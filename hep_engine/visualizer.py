@@ -18,18 +18,61 @@ class HEPVisualizer:
         plt.rcParams['figure.dpi'] = 200
         plt.rcParams['font.family'] = 'sans-serif'
 
+    def _draw_base_canvas(self, ax: plt.Axes, pos: Dict, n_features: int, labels: List[str]):
+        """Отрисовывает базовые узлы (подложку) поверх всего через NetworkX."""
+        bg_G = nx.Graph()
+        bg_G.add_nodes_from(range(n_features))
+        
+        nx.draw_networkx_nodes(bg_G, pos, ax=ax, 
+                               node_color='white', edgecolors='black', 
+                               node_size=800, linewidths=1.5)
+                               
+        labels_dict = {i: labels[i] if i < len(labels) else f"X{i}" for i in range(n_features)}
+        nx.draw_networkx_labels(bg_G, pos, labels=labels_dict, ax=ax, 
+                                font_color='black', font_size=12, 
+                                font_weight='bold', bbox={'facecolor':'white', 'linewidth':0})
+        
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-1.5, 1.5)
+
+        ax.set_aspect('equal', adjustable='box')
+
+    def _draw_nx_fallback(self, ax: plt.Axes, pos: Dict, individual_data: Any):
+        """Резервная отрисовка компонентов гиперграфа через линии NetworkX, если HNX падает."""
+        G_nx = nx.Graph()
+        
+        if isinstance(individual_data, dict):
+            edges_to_draw = individual_data.get('edges', [])
+            for edge in edges_to_draw:
+                nodes = edge['nodes']
+                for j in range(len(nodes)):
+                    for k in range(j+1, len(nodes)):
+                        G_nx.add_edge(nodes[j], nodes[k])
+        elif hasattr(individual_data, 'genome'):
+            for edge in individual_data.genome.edges.values():
+                nodes = edge.node_indices
+                for j in range(len(nodes)):
+                    for k in range(j+1, len(nodes)):
+                        G_nx.add_edge(nodes[j], nodes[k])
+                        
+        nx.draw_networkx_edges(G_nx, pos, ax=ax, alpha=0.3)
+
     def plot_individual(self, 
                         individual_data: Any, 
                         n_features: int, 
                         title: str = "Hypergraph Structure", 
                         save_path: str = None,
-                        pos: Dict = None):
+                        pos: Dict = None,
+                        labels: List[str] = None) -> Dict:
         """
         Рисует гиперграф одной особи. Поддерживает как словари, так и объекты Individual.
         """
         # 1. Сбор ребер и фитнеса
         hnx_edges = {}
         actual_fitness = 0.0
+        
+        if labels is None:
+            labels = [str(i) for i in range(n_features)]
         
         # Если передан объект Individual (из движка)
         if hasattr(individual_data, 'genome'):
@@ -47,86 +90,61 @@ class HEPVisualizer:
         else:
             raise TypeError("individual_data must be a dict or an Individual object")
             
-        all_nodes = list(range(n_features))
-        
-        # 2. Создание Hypergraph
-        if not hnx_edges:
-            # Пустой граф
-            fig, ax = plt.subplots(figsize=(10, 8))
-            G = nx.Graph()
-            G.add_nodes_from(all_nodes)
-            if pos is None: pos = nx.circular_layout(G)
-            nx.draw(G, pos, ax=ax, with_labels=True, node_color='silver', node_size=600, font_size=10)
-            ax.set_title(f"{title} (No features evolved yet)", fontsize=14)
-            if save_path:
-                plt.savefig(save_path, bbox_inches='tight')
-                plt.close()
-            return pos
-
-        H = hnx.Hypergraph(hnx_edges)
-        
-        # 3. Layout
         if pos is None:
-            # Circular layout часто выглядит чище для небольших наборов признаков
-            temp_G = nx.Graph()
-            temp_G.add_nodes_from(range(n_features))
-            pos = nx.circular_layout(temp_G)
+            # Получаем координаты точек напрямую из списка индексов
+            pos = nx.circular_layout(range(n_features))
 
-        # 4. Рендеринг
+        # 2. Инициализация холста
         fig, ax = plt.subplots(figsize=(12, 10))
         
-        # Цвета для ребер
-        import matplotlib.cm as cm
-        colors = cm.get_cmap('Set2')(np.linspace(0, 1, len(H.edges)))
-        
+        # 3. Отрисовка пустого графа (нулевой кадр)
+        if not hnx_edges:
+            self._draw_base_canvas(ax, pos, n_features, labels)
+            ax.set_title(f"{title}\nR2: {actual_fitness:.4f}", fontsize=18, fontweight='bold', pad=25)
+            ax.set_axis_off()
+            fig.patch.set_facecolor('#fdfdfd')
+            
+            if save_path:
+                plt.savefig(save_path, facecolor=fig.get_facecolor(), bbox_inches='tight')
+                plt.close(fig)
+            return pos
+
+        # 4. Рендеринг гиперграфа
+        H = hnx.Hypergraph(hnx_edges)
+
         try:
             # Отключаем проблемный fill_edge_alpha и используем fill_edges=True
-            # HNX сам управляет цветами, если мы не передаем их жестко
             hnx.draw(H, 
                      pos=pos,
                      ax=ax,
-                     node_radius=2.0,
                      fill_edges=True,
-                     with_node_labels=True,
+                     with_node_labels=False,  # Отключаем лейблы HNX
                      with_edge_labels=True,
-                     node_labels_kwargs={'fontsize': 14, 'fontweight': 'bold'},
-                     edge_labels_kwargs={'fontsize': 10, 'fontstyle': 'italic'},
-                     nodes_kwargs={'facecolors': 'white', 'edgecolors': 'black', 'linewidths': 1.5},
-                     edges_kwargs={'linewidths': 2}
+                     edge_labels_kwargs={'fontsize': 12, 'fontstyle': 'italic', 'fontweight': 'bold'},
+                     nodes_kwargs={'alpha': 0}, # Полностью скрываем узлы HNX
+                     edges_kwargs={'linewidths': 2},
+                     node_radius=2,
             )
+            # Единый рендеринг ВСЕХ узлов поверх пузырей гиперграфа
+            self._draw_base_canvas(ax, pos, n_features, labels)
+            
         except Exception as e:
-            # Fallback к NetworkX если HNX все еще ломается
+            # Fallback к NetworkX если HNX падает
             print(f"HNX Draw failed, using NetworkX fallback: {e}")
-            G_nx = nx.Graph()
-            G_nx.add_nodes_from(range(n_features))
-            nx.draw(G_nx, pos, ax=ax, with_labels=True, node_color='skyblue', node_size=800)
-            if isinstance(individual_data, dict):
-                edges_to_draw = individual_data.get('edges', [])
-                for edge in edges_to_draw:
-                    nodes = edge['nodes']
-                    for j in range(len(nodes)):
-                        for k in range(j+1, len(nodes)):
-                            G_nx.add_edge(nodes[j], nodes[k])
-            elif hasattr(individual_data, 'genome'):
-                for edge in individual_data.genome.edges.values():
-                    nodes = edge.node_indices
-                    for j in range(len(nodes)):
-                        for k in range(j+1, len(nodes)):
-                            G_nx.add_edge(nodes[j], nodes[k])
-            nx.draw_networkx_edges(G_nx, pos, alpha=0.3)
+            self._draw_base_canvas(ax, pos, n_features, labels)
+            self._draw_nx_fallback(ax, pos, individual_data)
 
-        fitness = actual_fitness
-        ax.set_title(f"{title}\nR2: {fitness:.4f}", fontsize=18, fontweight='bold', pad=25)
-        
-        # Добавляем красивый фон или рамку
+        # 5. Финализация картинки
+        ax.set_title(f"{title}\nR2: {actual_fitness:.4f}", fontsize=18, fontweight='bold', pad=25)
         ax.set_axis_off()
         fig.patch.set_facecolor('#fdfdfd')
         
         if save_path:
             plt.savefig(save_path, facecolor=fig.get_facecolor(), bbox_inches='tight')
-            plt.close()
+            plt.close(fig)
         else:
             plt.show()
+            
         return pos
 
     def generate_evolution_frames(self, history_file: str):
@@ -138,7 +156,9 @@ class HEPVisualizer:
             return
 
         with open(history_file, 'r') as f:
-            history = json.load(f)
+            file_data = json.load(f)
+            history = file_data['history']
+            labels = file_data['labels']
             
         frames_dir = os.path.join(self.output_dir, 'frames')
         if os.path.exists(frames_dir):
@@ -146,27 +166,23 @@ class HEPVisualizer:
             shutil.rmtree(frames_dir)
         os.makedirs(frames_dir, exist_ok=True)
         
-        # Определяем n_features
-        all_nodes = set()
-        for gen in history:
-            for ind in gen['population']:
-                for edge in ind['edges']:
-                    all_nodes.update(edge['nodes'])
-        n_features = max(all_nodes) + 1 if all_nodes else 12
+        n_features = len(labels)
         
-        # Фиксированный круговой лейаут
-        temp_G = nx.Graph()
-        temp_G.add_nodes_from(range(n_features))
-        pos = nx.circular_layout(temp_G)
+        # Получаем координаты
+        pos = nx.circular_layout(range(n_features))
         
         print(f"Starting frame generation ({len(history)} frames)...")
         for i, gen in enumerate(history):
             best_ind = max(gen['population'], key=lambda x: x['fitness'])
             save_path = os.path.join(frames_dir, f"gen_{gen['generation']:03d}.png")
-            self.plot_individual(best_ind, n_features=n_features, 
+            
+            self.plot_individual(best_ind, 
+                                 n_features=n_features,
+                                 labels=labels,
                                  title=f"Evolutionary HEP Insight: Gen {gen['generation']}", 
                                  save_path=save_path,
                                  pos=pos)
+                                 
             if i % 10 == 0:
                 print(f"  Processed {i}/{len(history)} frames...")
         

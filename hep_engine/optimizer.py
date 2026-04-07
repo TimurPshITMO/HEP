@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional, Dict
 import time
+import random
 import numpy as np
 from .evolution import Individual, Population, GeneticOperators
 from .evaluator import FitnessEvaluator
@@ -15,9 +16,11 @@ class EvolutionaryOptimizer:
                  mut_rate: float = 0.4, 
                  cross_rate: float = 0.5,
                  elitism_count: int = 2,
+                 tournament_size: int = 3,
                  available_functions: Optional[List[str]] = None):
         self.pop_size = pop_size
         self.elitism_count = elitism_count
+        self.tournament_size = tournament_size
         self.operators = GeneticOperators(
             mutation_rate=mut_rate, 
             crossover_rate=cross_rate,
@@ -25,12 +28,13 @@ class EvolutionaryOptimizer:
         )
         self.tracker = EvolutionTracker()
         self._fitness_cache: Dict[str, float] = {}
-        self._fitness_cache: Dict[str, float] = {}
 
     def run(self, 
             evaluator: FitnessEvaluator, 
             n_generations: int = 20, 
-            timeout: float = 600) -> Population:
+            timeout: float = 600,
+            labels: List[str] = None,
+            record_history: bool = False) -> Population:
         
         start_time = time.time()
         n_features = evaluator.X.shape[1]
@@ -38,15 +42,11 @@ class EvolutionaryOptimizer:
         # 1. Инициализация
         pop = Population(self.pop_size)
         pop.initialize(n_features)
+
+        self.tracker.record_labels(labels if labels is not None else [f"X{i}" for i in range(n_features)])
         
         # Первая оценка
-        for ind in pop.individuals:
-            sig = ind.genome.signature
-            if sig in self._fitness_cache:
-                ind.fitness = self._fitness_cache[sig]
-            else:
-                evaluator.evaluate(ind)
-                self._fitness_cache[sig] = ind.fitness
+        self._evaluate_population(pop.individuals, evaluator)
             
         for gen in range(n_generations):
             if (time.time() - start_time) > timeout:
@@ -83,23 +83,26 @@ class EvolutionaryOptimizer:
                         new_individuals.append(mutated)
                         
             # Оценка новых (тех, кто не элиты)
-            for ind in new_individuals[self.elitism_count:]:
-                sig = ind.genome.signature
-                if sig in self._fitness_cache:
-                    ind.fitness = self._fitness_cache[sig]
-                else:
-                    evaluator.evaluate(ind)
-                    self._fitness_cache[sig] = ind.fitness
+            self._evaluate_population(new_individuals[self.elitism_count:], evaluator)
                 
             pop.individuals = new_individuals
 
         pop.sort()
-        self.tracker.save_full_history()
+        if record_history:
+            self.tracker.save_full_history()
         return pop
 
     def _selection(self, pop: Population) -> Individual:
         """Турнирная селекция."""
-        import random
-        k = 3
-        selection = random.sample(pop.individuals, k)
+        selection = random.sample(pop.individuals, self.tournament_size)
         return max(selection, key=lambda x: x.fitness)
+
+    def _evaluate_population(self, individuals: List[Individual], evaluator: FitnessEvaluator):
+        """Оценивает список особей, используя кэш для ускорения."""
+        for ind in individuals:
+            sig = ind.genome.signature
+            if sig in self._fitness_cache:
+                ind.fitness = self._fitness_cache[sig]
+            else:
+                evaluator.evaluate(ind)
+                self._fitness_cache[sig] = ind.fitness

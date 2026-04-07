@@ -11,6 +11,7 @@ class EvolutionTracker:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         self.history = []
+        self.labels = []
 
     def record_generation(self, gen_idx: int, individuals: List[Individual]):
         """Записывает состояние поколения."""
@@ -40,6 +41,11 @@ class EvolutionTracker:
 
     def save_full_history(self, filename: str = "full_history.json"):
         path = os.path.join(self.output_dir, filename)
+        n_features = len(self.labels) if self.labels else 0
         with open(path, 'w') as f:
-            json.dump(self.history, f)
+            json.dump({'history': self.history, 'labels': self.labels, 'n_features': n_features}, f)
         print(f"Full history saved to {path}")
+
+    def record_labels(self, labels: List[str]):
+        """Записывает метки признаков."""
+        self.labels = labels

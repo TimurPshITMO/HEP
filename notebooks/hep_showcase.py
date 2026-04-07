@@ -67,7 +67,7 @@ def generate_showcase_data(n_samples=500, n_features=10):
     term4 = np.min(X[:, [5, 6, 7]], axis=1)          # min(5,6,7)
     term5 = X[:, 1] * X[:, 3]                        # prod(1,3)
     
-    y = 2*term1 + 2*term2 + 2*term3 + 2*term4 + 2*term5 + np.random.normal(0, 0.1, n_samples)
+    y = 2*term1 + 3*term2 + 3*term3 + 3*term4 + 2*term5 + np.random.normal(0, 0.1, n_samples)
     feature_names = [f"feat_{i}" for i in range(n_features)]
     return X, y, feature_names
 
@@ -117,7 +117,7 @@ print(f"R2 Score (Polynomial d2): {r2_poly:.4f}")
 evaluator = FitnessEvaluator(X_train, y_train, model=ref_model, n_jobs=2, complexity_penalty=0.007)
 
 optimizer = EvolutionaryOptimizer(
-    pop_size=25, 
+    pop_size=30,
     mut_rate=0.7, 
     cross_rate=0.7, 
     elitism_count=3,
@@ -125,7 +125,7 @@ optimizer = EvolutionaryOptimizer(
 )
 
 print("Запуск эволюции гиперграфа...")
-pop = optimizer.run(evaluator, n_generations=100, timeout=240)
+pop = optimizer.run(evaluator, n_generations=200, timeout=1000, labels=feature_names, record_history=True)
 best_ind = pop.best()
 
 print(f"\nЛучший фитнес (CV R2): {best_ind.fitness:.4f}")
