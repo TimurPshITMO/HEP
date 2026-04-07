@@ -38,7 +38,10 @@ FRAMES_DIR   = os.path.join('history', 'anim_frames')
 
 print("📂 Загрузка истории эволюции...")
 with open(HISTORY_FILE, 'r') as f:
-    history = json.load(f)
+    hist_data = json.load(f)
+    #labels = hist_data['labels']
+    history = hist_data['history']
+    n_features = hist_data['n_features']
 
 n_gens = len(history)
 print(f"   Найдено поколений: {n_gens}")
@@ -51,7 +54,7 @@ best_fitness = [max(ind['fitness'] for ind in g['population']) for g in history]
 avg_fitness  = [np.mean([ind['fitness'] for ind in g['population']]) for g in history]
 
 # Определяем "моменты открытия" — поколения со скачком фитнеса > threshold
-JUMP_THRESHOLD = 0.05
+JUMP_THRESHOLD = 0.03
 discovery_gens = []
 for i in range(1, len(best_fitness)):
     if best_fitness[i] - best_fitness[i-1] > JUMP_THRESHOLD:
@@ -66,12 +69,7 @@ print(f"   Обнаружены скачки в поколениях: {[generati
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
 # Определяем число признаков из истории
-all_nodes = set()
-for gen in history:
-    for ind in gen['population']:
-        for edge in ind['edges']:
-            all_nodes.update(edge['nodes'])
-n_features = max(all_nodes) + 1 if all_nodes else 10
+#n_features = len(labels)
 
 # Фиксированный круговой layout — одинаковый для всех кадров (иначе граф "прыгает")
 import networkx as nx
@@ -92,7 +90,8 @@ for i, gen_data in enumerate(history):
         n_features=n_features,
         title=f"Gen {gen_data['generation']:02d} — Best Genome",
         save_path=frame_path,
-        pos=fixed_pos
+        pos=fixed_pos,
+        #labels=labels
     )
     frame_paths.append(frame_path)
     if i % 10 == 0:
@@ -106,7 +105,7 @@ print("   ✅ Все кадры готовы.")
 print("🎬 Сборка анимации...")
 
 fig = plt.figure(figsize=(18, 8), facecolor='#1a1a2e')
-gs  = gridspec.GridSpec(1, 2, width_ratios=[1, 1.4], wspace=0.05)
+gs  = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.05)
 
 ax_curve  = fig.add_subplot(gs[0])   # Левая панель — кривая
 ax_graph  = fig.add_subplot(gs[1])   # Правая панель — гиперграф
