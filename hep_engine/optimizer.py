@@ -56,7 +56,7 @@ class EvolutionaryOptimizer:
             n_generations: int = 20, 
             timeout: float = 600,
             labels: List[str] = None,
-            record_history: bool = False) -> Population:
+            record_history: bool = True) -> Population:
         """Запускает основной цикл эволюции гиперграфов.
         
         Args:
@@ -65,7 +65,7 @@ class EvolutionaryOptimizer:
             timeout (float, optional): Лимит времени обработки в секундах. Defaults to 600.
             labels (List[str], optional): Список исходных признаков данных для 
                 трекера истории. Defaults to None.
-            record_history (bool, optional): Нужно ли сохранять полные JSON дампы. Defaults to False.
+            record_history (bool, optional): Нужно ли сохранять полные JSON дампы. Defaults to True.
             
         Returns:
             Population: Обьект итоговой популяции. Отсортирован по фитнесу (лучшие в начале).
