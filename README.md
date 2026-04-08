@@ -1,8 +1,8 @@
 # HEP: Hypergraph-Evolved Pipelines
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-<!-- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) -->
 [![Docs: Russian](https://img.shields.io/badge/Docs-Russian-red.svg)](docs/theory.md)
+<!-- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) -->
 
 **Hypergraph-Evolved Pipelines (HEP)** — это профессиональный фреймворк для автоматического конструирования признаков (**AutoFE**), использующий генетические алгоритмы на основе структуры **функциональных гиперграфов**.
 
